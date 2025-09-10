@@ -3,12 +3,10 @@ library(tidymodels)
 library(vroom)
 
 # First Day of the month
-s <- vroom("GitHub/BikeShare/train.csv")
+train_data <- vroom("train.csv")
 
 #
-vroom("GitHub/BikeShare/test.csv")
+test_data <- vroom("test.csv")
 
 # Method for Avoiding dollar signs
-pull(s, weather)
-
-print("hi")
+pull(train_data, weather)
