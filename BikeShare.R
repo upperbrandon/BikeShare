@@ -11,3 +11,4 @@ vroom("GitHub/BikeShare/test.csv")
 # Method for Avoiding dollar signs
 pull(s, weather)
 
+print("hi")
