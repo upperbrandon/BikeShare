@@ -49,7 +49,7 @@ PA <- ggplot(data = train_data, aes(x = as.factor(weather))) + geom_bar() +
 PB <- ggplot(data = train_data, aes(x = windspeed)) + geom_histogram() + 
   xlab("Windspeed") + ylab("Count")
 
-PC <- ggplot(data = train_data, aes()) + geom_bar() + 
+PC <- ggplot(data = train_data, aes(x= humidity)) + geom_histogram() + 
   xlab("Humidity") + ylab("Count")
 
 PD <- ggplot(data = train_data, aes(x = temp, y = atemp)) + geom_point() + 
