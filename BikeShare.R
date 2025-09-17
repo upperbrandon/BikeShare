@@ -65,17 +65,17 @@ my_linear_model <- linear_reg() %>%
   set_engine("lm") %>%
   set_mode("regression")
   
-MD <- fit(my_linear_model, formula = count ~ season + holiday + workingday + weather + temp + atemp + humidity + windspeed, data = train_data)
+MD <- fit(my_linear_model, formula = count ~ season + holiday + workingday + weather + temp + atemp + humidity + windspeed + datetime, data = train_data)
   
 bike_predictions <- predict(MD, new_data = test_data)
 bike_predictions
 
 
 kaggle_submission <- bike_predictions %>%
-  bind_cols(.,test_data)
-  select(datetime, .pred)
-  rename(count = .pred)
-  mutate(count = pmax(0,count))
+  bind_cols(.,test_data) %>%
+  select(datetime, .pred) %>%
+  rename(count = .pred) %>%
+  mutate(count = pmax(0,count)) %>%
   mutate(datetime = as.character(format(datetime)))
 
 vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",")  
