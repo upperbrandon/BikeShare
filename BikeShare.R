@@ -4,6 +4,7 @@ library(vroom)
 library(skimr)
 library(DataExplorer)
 library(patchwork)
+setwd("~/GitHub/BikeShare")
 
 # First 19 Days of the month (train) vs. last portion of month (test)
 train_data <- vroom("train.csv")
@@ -56,3 +57,25 @@ PD <- ggplot(data = train_data, aes(x = temp, y = atemp)) + geom_point() +
   xlab("Temperature") + ylab("Perceived Temperature")
 
 (PA + PB)/(PC + PD)
+
+
+# LM section from class ---------------------------------------------------
+
+my_linear_model <- linear_reg() %>%
+  set_engine("lm") %>%
+  set_mode("regression")
+  
+MD <- fit(my_linear_model, formula = count ~ season + holiday + workingday + weather + temp + atemp + humidity + windspeed, data = train_data)
+  
+bike_predictions <- predict(MD, new_data = test_data)
+bike_predictions
+
+
+kaggle_submission <- bike_predictions %>%
+  bind_cols(.,test_data)
+  select(datetime, .pred)
+  rename(count = .pred)
+  mutate(count = pmax(0,count))
+  mutate(datetime = as.character(format(datetime)))
+
+vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",")  
