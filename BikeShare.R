@@ -79,3 +79,6 @@ kaggle_submission <- bike_predictions %>%
   mutate(datetime = as.character(format(datetime)))
 
 vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",")  
+
+# Score 1.46851
+
