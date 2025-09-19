@@ -4,7 +4,8 @@ library(vroom)
 library(skimr)
 library(DataExplorer)
 library(patchwork)
-setwd("~/GitHub/BikeShare")
+library(glmnet)
+impsetwd("~/GitHub/BikeShare")
 
 # First 19 Days of the month (train) vs. last portion of month (test)
 train_data <- vroom("train.csv")
@@ -89,13 +90,13 @@ my_linear_model <- linear_reg() %>%
 bike_workflow <- workflow() %>%
   add_recipe(my_recipe) %>%
   add_model(my_linear_model) %>%
-  fit(data=train_data)
+  fit(data=Clean_train)
 
-lin_preds <- predict(bike_workflow, new_data = Clean_train)
+lin_preds <- predict(bike_workflow, new_data = test_data)
 
 
 kaggle_submission <- lin_preds %>%
-  bind_cols(.,Clean_train) %>%
+  bind_cols(.,test_data) %>%
   select(datetime, .pred) %>%
   rename(count = .pred) %>%
   mutate(count = exp(count)) %>%
@@ -104,6 +105,64 @@ kaggle_submission <- lin_preds %>%
 
 vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
 
+# Score 1.01404
+
+
+
+# Penalized Regression ----------------------------------------------------
+
+my_recipe <- recipe(count ~ season + holiday + workingday +  # Define recipe
+                      weather + temp + atemp + humidity + windspeed + 
+                      datetime, data = train_data) %>%
+  step_mutate(weather = if_else(weather == 4, 3, weather)) %>% # Weather 4 to 3
+  step_mutate(weather=factor(weather, levels = c(1,2,3))) %>% # Weather to ftr
+  step_time(datetime, features = c("hour")) %>%
+  step_mutate(season=factor(season, levels = c(1,2,3,4))) %>% # Season to ftr
+  step_rm(temp) %>%
+  step_rm(datetime) %>%
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%
+  step_normalize(all_numeric_predictors())
+
+preg_model <- linear_reg(penalty=0, mixture=2) %>%
+  set_engine("glmnet")
+preg_wf <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(preg_model) %>%
+  fit(data = Clean_train)
+lin_preds <- predict(preg_wf, new_data = test_data)
+
+kaggle_submission <- lin_preds %>%
+  bind_cols(.,test_data) %>%
+  select(datetime, .pred) %>%
+  rename(count = .pred) %>%
+  mutate(count = exp(count)) %>%
+  mutate(count = pmax(0,count)) %>%
+  mutate(datetime = as.character(format(datetime))) 
+
+vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
+
+
+# My Results --------------------------------------------------------------
+
+
+VP <- c("00","01","10","11","02") 
+Score <- c(1.02299, 1.0234, 1.06889, 1.41486, 1.07042)
+Results <- bind_cols(data.frame(VP), data.frame(Score))
+
+
+# Better Coding? ----------------------------------------------------------
+
+library(tibble)
+
+Results <- c("00","01","10","11","02") %>%
+  as.data.frame() %>%
+  bind_cols(c(1.02299, 1.0234, 1.06889, 1.41486, 1.07042)) %>%
+  setNames(c("VP", "Score"))
+
+Results <- tibble(VP = c("00","01","10","11","02"),
+                  Score = c(1.02299, 1.0234, 1.06889, 1.41486, 1.07042))
+
+ggplot(data = Results , aes(x = VP, y = Score), group = 1) + geom_point()
 
 # Old --------------------------------------------------------------------
 
