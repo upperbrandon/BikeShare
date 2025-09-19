@@ -59,26 +59,69 @@ PD <- ggplot(data = train_data, aes(x = temp, y = atemp)) + geom_point() +
 (PA + PB)/(PC + PD)
 
 
+# Feature Engineering -----------------------------------------------------
+
+# Cleaning Section
+
+Clean_train <- train_data %>%    # Creating new clean data object
+  select(-casual, -registered) %>% # Selecting everything but casual/registered
+  mutate(count = log(count)) # Changing count to be the log version of itself
+
+# Recipe Section 
+
+my_recipe <- recipe(count ~ season + holiday + workingday +  # Define recipe
+                      weather + temp + atemp + humidity + windspeed + 
+                      datetime, data = train_data) %>% 
+  step_mutate(weather = if_else(weather == 4, 3, weather)) %>% # Weather 4 to 3
+  step_mutate(weather=factor(weather, levels = c(1,2,3))) %>% # Weather to ftr
+  step_time(datetime, features = c("hour")) %>%
+  step_mutate(season=factor(season, levels = c(1,2,3,4))) %>% # Season to ftr
+  step_rm(temp)
+prepped_recipe <- prep(my_recipe)
+bake(prepped_recipe, new_data = test_data)  
+
 # LM section from class ---------------------------------------------------
 
 my_linear_model <- linear_reg() %>%
   set_engine("lm") %>%
   set_mode("regression")
-  
-MD <- fit(my_linear_model, formula = count ~ season + holiday + workingday + weather + temp + atemp + humidity + windspeed + datetime, data = train_data)
-  
-bike_predictions <- predict(MD, new_data = test_data)
-bike_predictions
+
+bike_workflow <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(my_linear_model) %>%
+  fit(data=train_data)
+
+lin_preds <- predict(bike_workflow, new_data = Clean_train)
 
 
-kaggle_submission <- bike_predictions %>%
-  bind_cols(.,test_data) %>%
+kaggle_submission <- lin_preds %>%
+  bind_cols(.,Clean_train) %>%
   select(datetime, .pred) %>%
   rename(count = .pred) %>%
+  mutate(count = exp(count)) %>%
   mutate(count = pmax(0,count)) %>%
-  mutate(datetime = as.character(format(datetime)))
+  mutate(datetime = as.character(format(datetime))) 
 
-vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",")  
+vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
+
+
+# Old --------------------------------------------------------------------
+
+
+# MD <- fit(my_linear_model, formula = count ~ season + holiday + workingday + weather + temp + atemp + humidity + windspeed + datetime, data = train_data)
+#   
+# bike_predictions <- predict(MD, new_data = test_data)
+# bike_predictions
+# 
+# 
+# kaggle_submission <- bike_predictions %>%
+#   bind_cols(.,test_data) %>%
+#   select(datetime, .pred) %>%
+#   rename(count = .pred) %>%
+#   mutate(count = pmax(0,count)) %>%
+#   mutate(datetime = as.character(format(datetime)))
+# 
+# vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",")  
 
 # Score 1.46851
 
