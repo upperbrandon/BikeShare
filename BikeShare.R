@@ -5,7 +5,7 @@ library(skimr)
 library(DataExplorer)
 library(patchwork)
 library(glmnet)
-impsetwd("~/GitHub/BikeShare")
+setwd("~/GitHub/BikeShare")
 
 # First 19 Days of the month (train) vs. last portion of month (test)
 train_data <- vroom("train.csv")
