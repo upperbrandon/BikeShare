@@ -5,6 +5,7 @@ library(skimr)
 library(DataExplorer)
 library(patchwork)
 library(glmnet)
+library(ranger)
 setwd("~/GitHub/BikeShare")
 
 # First 19 Days of the month (train) vs. last portion of month (test)
@@ -228,8 +229,6 @@ vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",")
 
 
 # Regression Trees --------------------------------------------------------
-library(tidymodels)
-
 
 my_mod <- decision_tree(tree_depth = tune(),
                         cost_complexity = tune(),
@@ -286,11 +285,20 @@ vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",")
 
 
 # Forests -----------------------------------------------------------------
+my_recipe <- recipe(count ~ season + holiday + workingday +  # Define recipe
+                      weather + temp + atemp + humidity + windspeed + 
+                      datetime, data = train_data) %>% 
+  step_mutate(weather = if_else(weather == 4, 3, weather)) %>% # Weather 4 to 3
+  step_mutate(weather=factor(weather, levels = c(1,2,3))) %>% # Weather to ftr
+  step_time(datetime, features = c("hour")) %>%
+  step_mutate(season=factor(season, levels = c(1,2,3,4))) %>% # Season to ftr
+  step_rm(datetime, temp) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors()) 
 
-library("ranger")
 my_mod <- rand_forest(mtry = tune(),
                       min_n=tune(),
-                      trees=500) %>%
+                      trees=100) %>%
   set_engine("ranger")%>% 
   set_mode("regression")
 
