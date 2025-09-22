@@ -283,6 +283,61 @@ kaggle_submission <- predictions %>%
 
 vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
 
+
+
+# Forests -----------------------------------------------------------------
+
+library("ranger")
+my_mod <- rand_forest(mtry = tune(),
+                      min_n=tune(),
+                      trees=500) %>%
+  set_engine("ranger")%>% 
+  set_mode("regression")
+
+
+grid_of_tuning_params <- grid_regular(mtry(range=c(1,7)),
+                                      min_n(),
+                                      levels = 4)
+
+bike_workflow <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(my_mod)
+
+
+
+folds <- vfold_cv(Clean_train, v = 5, repeats=1)
+
+CV_results <- bike_workflow %>%
+  tune_grid(resamples=folds,
+            grid=grid_of_tuning_params,
+            metrics=metric_set(rmse, mae))
+
+collect_metrics(CV_results) %>%
+  filter(.metric=="rmse") %>%
+  ggplot(data=., aes(x=penalty, y=mean, color=factor(mixture))) +
+  geom_line()
+
+bestTune <- CV_results %>%
+  select_best(metric="rmse")
+
+final_wf <-
+  bike_workflow %>%
+  finalize_workflow(bestTune) %>%
+  fit(data=Clean_train)
+
+predictions <- predict(final_wf, new_data = test_data)
+
+kaggle_submission <- predictions %>%
+  bind_cols(.,test_data) %>%
+  select(datetime, .pred) %>%
+  rename(count = .pred) %>%
+  mutate(count = exp(count)) %>%
+  mutate(count = pmax(0,count)) %>%
+  mutate(datetime = as.character(format(datetime))) 
+
+vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
+
+                      
 # Old --------------------------------------------------------------------
 
 
