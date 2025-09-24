@@ -345,6 +345,148 @@ kaggle_submission <- predictions %>%
 
 vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
 
+
+
+
+# Boosting ----------------------------------------------------------------
+
+my_recipe <- recipe(count ~ season + holiday + workingday +  # Define recipe
+                      weather + temp + atemp + humidity + windspeed + 
+                      datetime, data = train_data) %>% 
+  step_mutate(weather = if_else(weather == 4, 3, weather)) %>% # Weather 4 to 3
+  step_mutate(weather=factor(weather, levels = c(1,2,3))) %>% # Weather to ftr
+  step_time(datetime, features = c("hour")) %>%
+  step_mutate(season=factor(season, levels = c(1,2,3,4))) %>% # Season to ftr
+  step_rm(datetime, temp) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors()) 
+
+library(bonsai)
+library(lightgbm)
+
+boost_model <- boost_tree(tree_depth = tune(),
+                          trees = tune(),
+                          learn_rate = tune()) %>%
+  set_engine("lightgbm") %>%
+  set_mode("regression")
+
+
+bike_workflow <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(boost_model)
+
+folds <- vfold_cv(Clean_train, v = 5, repeats=1)
+
+grid_of_tuning_params <- grid_regular(
+  tree_depth(range = c(1, 10)),
+  learn_rate(range = c(-3, -0.1)),
+  trees(range = c(10, 50)),
+  levels = 4
+)
+
+CV_results <- bike_workflow %>%
+  tune_grid(resamples=folds,
+            grid=grid_of_tuning_params,
+            metrics=metric_set(rmse, mae))
+
+collect_metrics(CV_results) %>%
+  filter(.metric=="rmse") %>%
+  ggplot(data=., aes(x=penalty, y=mean, color=factor(mixture))) +
+  geom_line()
+
+bestTune <- CV_results %>%
+  select_best(metric="rmse")
+
+final_wf <-
+  bike_workflow %>%
+  finalize_workflow(bestTune) %>%
+  fit(data=Clean_train)
+
+predictions <- predict(final_wf, new_data = test_data)
+
+kaggle_submission <- predictions %>%
+  bind_cols(.,test_data) %>%
+  select(datetime, .pred) %>%
+  rename(count = .pred) %>%
+  mutate(count = exp(count)) %>%
+  mutate(count = pmax(0,count)) %>%
+  mutate(datetime = as.character(format(datetime))) 
+
+vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
+
+
+
+# Bart --------------------------------------------------------------------
+
+
+bart_model <- bart(trees = tune()) %>%
+  set_engine("dbarts") %>%
+  set_mode("regression")
+
+my_recipe <- recipe(count ~ season + holiday + workingday +  # Define recipe
+                      weather + temp + atemp + humidity + windspeed + 
+                      datetime, data = train_data) %>% 
+  step_mutate(weather = if_else(weather == 4, 3, weather)) %>% # Weather 4 to 3
+  step_mutate(weather=factor(weather, levels = c(1,2,3))) %>% # Weather to ftr
+  step_time(datetime, features = c("hour")) %>%
+  step_mutate(season=factor(season, levels = c(1,2,3,4))) %>% # Season to ftr
+  step_rm(datetime, temp) %>%
+  step_dummy(all_nominal_predictors()) %>%
+  step_normalize(all_numeric_predictors()) 
+
+library(bonsai)
+library(lightgbm)
+
+boost_model <- boost_tree(tree_depth = tune(),
+                          trees = tune(),
+                          learn_rate = tune()) %>%
+  set_engine("lightgbm") %>%
+  set_mode("regression")
+
+
+bike_workflow <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(bart_model)
+
+folds <- vfold_cv(Clean_train, v = 5, repeats=1)
+
+grid_of_tuning_params <- grid_regular(
+  trees(range = c(10, 50)),
+  levels = 4
+)
+
+CV_results <- bike_workflow %>%
+  tune_grid(resamples=folds,
+            grid=grid_of_tuning_params,
+            metrics=metric_set(rmse, mae))
+
+collect_metrics(CV_results) %>%
+  filter(.metric=="rmse") %>%
+  ggplot(data=., aes(x=penalty, y=mean, color=factor(mixture))) +
+  geom_line()
+
+bestTune <- CV_results %>%
+  select_best(metric="rmse")
+
+final_wf <-
+  bike_workflow %>%
+  finalize_workflow(bestTune) %>%
+  fit(data=Clean_train)
+
+predictions <- predict(final_wf, new_data = test_data)
+
+kaggle_submission <- predictions %>%
+  bind_cols(.,test_data) %>%
+  select(datetime, .pred) %>%
+  rename(count = .pred) %>%
+  mutate(count = exp(count)) %>%
+  mutate(count = pmax(0,count)) %>%
+  mutate(datetime = as.character(format(datetime))) 
+
+vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
+
+
+
                       
 # Old --------------------------------------------------------------------
 
