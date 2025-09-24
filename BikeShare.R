@@ -298,7 +298,7 @@ my_recipe <- recipe(count ~ season + holiday + workingday +  # Define recipe
 
 my_mod <- rand_forest(mtry = tune(),
                       min_n=tune(),
-                      trees=100) %>%
+                      trees=1000) %>%
   set_engine("ranger")%>% 
   set_mode("regression")
 
