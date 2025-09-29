@@ -487,7 +487,37 @@ vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",")
 
 
 
-                      
+# H2O Online Model --------------------------------------------------------
+
+library(agua)
+
+h2o::h2o.init()
+
+auto_model <- auto_ml() %>%
+  set_engine("h2o", max_models = 3) %>%
+  set_mode("regression")
+
+automl_wf <- workflow() %>%
+  add_recipe(my_recipe) %>%
+  add_model(auto_model) %>%
+  fit(data = Clean_train)
+
+predictions <- predict(automl_wf, new_data = test_data)
+
+kaggle_submission <- predictions %>%
+  bind_cols(.,test_data) %>%
+  select(datetime, .pred) %>%
+  rename(count = .pred) %>%
+  mutate(count = exp(count)) %>%
+  mutate(count = pmax(0,count)) %>%
+  mutate(datetime = as.character(format(datetime))) 
+
+vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
+
+
+
+
+
 # Old --------------------------------------------------------------------
 
 
