@@ -448,7 +448,7 @@ bike_workflow <- workflow() %>%
   add_recipe(my_recipe) %>%
   add_model(bart_model)
 
-folds <- vfold_cv(Clean_train, v = 5, repeats=1)
+folds <- vfold_cv(Clean_train, v = 10, repeats=2)
 
 grid_of_tuning_params <- grid_regular(
   trees(range = c(10, 50)),
@@ -513,10 +513,6 @@ kaggle_submission <- predictions %>%
   mutate(datetime = as.character(format(datetime))) 
 
 vroom_write(x = kaggle_submission, file = "./LinearPreds.csv", delim = ",") 
-
-
-
-
 
 # Old --------------------------------------------------------------------
 
